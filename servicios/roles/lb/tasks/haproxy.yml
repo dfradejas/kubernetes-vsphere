@@ -1,0 +1,27 @@
+---
+- name: Instalar haproxy
+  apt:
+    name: '{{ packages }}'
+    update_cache: yes
+  environment:
+    http_proxy: "{{ proxy }}"
+    https_proxy: "{{ proxy }}"
+  vars:
+    packages:
+      - 'haproxy={{ haproxy_version }}'
+
+- name: Copiar configuración haproxy
+  template:
+    src: templates/haproxy.j2
+    dest: /etc/haproxy/haproxy.cfg
+
+- name: Habilitar servicio haproxy
+  systemd:
+    name: haproxy
+    enabled: yes
+    state: restarted
+
+- name: Marcar paquetes para que no se actualicen
+  dpkg_selections:
+    name: haproxy
+    selection: hold

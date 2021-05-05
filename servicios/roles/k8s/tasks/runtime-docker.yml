@@ -1,0 +1,37 @@
+---
+- name: Instalar runtime docker.io
+  apt:
+    name: '{{ packages }}'
+    update_cache: yes
+  environment:
+    http_proxy: "{{ proxy }}"
+    https_proxy: "{{ proxy }}"
+  vars:
+    packages:
+      - 'docker.io={{ docker_version }}'
+
+- name: Setup daemon
+  copy:
+    src: files/daemon.json
+    dest: /etc/docker/daemon.json
+  become: yes
+
+- name: Create a directory if it does not exist
+  file:
+    path: /etc/systemd/system/docker.service.d/
+    state: directory
+  become: yes
+
+- name: Proxy Docker
+  template:
+    src: templates/http-proxy.conf.j2
+    dest: /etc/systemd/system/docker.service.d/http-proxy.conf
+  become: yes
+
+- name: Habilitar docker.io
+  systemd:
+    name: docker
+    enabled: yes
+    masked: no
+    state: restarted
+  become: yes

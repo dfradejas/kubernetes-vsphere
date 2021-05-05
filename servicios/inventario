@@ -1,0 +1,7 @@
+[k8s_nodes]
+192.168.200.234 ansible_hostname=node1
+192.168.200.235 ansible_hostname=node2
+192.168.200.236 ansible_hostname=node3
+[k8s_lb]
+192.168.200.233 ansible_hostname=lb1
+192.168.200.232 ansible_hostname=lb2

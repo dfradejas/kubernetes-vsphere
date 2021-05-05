@@ -1,0 +1,10 @@
+127.0.0.1	localhost
+127.0.1.1	{{ ansible_facts.hostname }}.{{ domain }} {{ ansible_facts.hostname }}
+
+{% for server in groups['k8s_lb'] %}
+{{hostvars[server]['ansible_facts']['default_ipv4']['address']}} {{hostvars[server]['ansible_facts']['hostname']}}.{{ domain }} {{hostvars[server]['ansible_facts']['hostname']}}
+{% endfor %}
+{% for server in groups['k8s_nodes'] %}
+{{hostvars[server]['ansible_facts']['default_ipv4']['address']}} {{hostvars[server]['ansible_facts']['hostname']}}.{{ domain }} {{hostvars[server]['ansible_facts']['hostname']}}
+{% endfor %}
+{{ lb_vip }}	secdevops-k8s.{{ domain }} secdevops-k8s

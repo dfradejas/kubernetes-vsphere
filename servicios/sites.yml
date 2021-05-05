@@ -1,0 +1,18 @@
+---
+- hosts: all
+  become: true
+  become_method: sudo
+  roles:
+    - common
+
+- hosts: k8s_lb
+  become: true
+  become_method: sudo
+  roles:
+    - lb
+
+- hosts: k8s_nodes
+  become: true
+  become_method: sudo
+  roles:
+    - k8s

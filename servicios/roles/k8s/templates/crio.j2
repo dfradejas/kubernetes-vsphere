@@ -1,0 +1,11 @@
+# /etc/default/crio
+
+# use "--enable-metrics" and "--metrics-port value"
+#CRIO_METRICS_OPTIONS="--enable-metrics"
+
+#CRIO_NETWORK_OPTIONS=
+#CRIO_STORAGE_OPTIONS=
+
+HTTP_PROXY={{ proxy }}
+HTTPS_PROXY={{ proxy }}
+NO_PROXY=*.internal,192.168.200.0/21,10.0.0.0/8

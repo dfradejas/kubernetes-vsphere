@@ -1,0 +1,48 @@
+---
+- name: Añadir repositorios de cri-o
+  apt_repository:
+    repo: '{{ item }}'
+    state: present
+    update_cache: no
+  with_items:
+    - 'deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_20.04/ /'
+    - 'deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/1.17/xUbuntu_20.04/ /'
+
+- name: Añadir clave firmada para el repositorio de cri-o
+  apt_key:
+    url: '{{ item }}'
+    state: present
+  environment:
+    http_proxy: "{{ proxy }}"
+    https_proxy: "{{ proxy }}"
+  with_items:
+    - https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:1.17/xUbuntu_20.04/Release.key
+    - https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_20.04/Release.key
+
+- name: Instalar runtime cri-o
+  apt:
+    name: '{{ packages }}'
+    update_cache: yes
+  environment:
+    http_proxy: "{{ proxy }}"
+    https_proxy: "{{ proxy }}"
+  vars:
+    packages:
+      - cri-o
+      - cri-o-runc
+
+- name: Copiar fichero de configuracion
+  copy:
+    src: "files/crio.conf"
+    dest: "/etc/crio/crio.conf"
+
+- name: Copiar fichero de variables
+  template:
+    src: "templates/crio.j2"
+    dest: "/etc/default/crio"
+
+- name: Arrancar crio
+  systemd:
+    enabled: yes
+    name: cri-o.service
+    state: restarted

@@ -1,0 +1,100 @@
+---
+- name: Añadir clave firmada del repositorio de Kubernetes
+  apt_key:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    state: present
+  environment:
+    http_proxy: "{{ proxy }}"
+    https_proxy: "{{ proxy }}"
+
+- name: Añadir repositorio de Kubernetes
+  tags: siembralo
+  apt_repository:
+    repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
+    state: present
+    update_cache: no
+
+- name: Instalar kubelet, kubeadm y kubectl
+  apt:
+    name: '{{ packages }}'
+    update_cache: yes
+  environment:
+    http_proxy: "{{ proxy }}"
+    https_proxy: "{{ proxy }}"
+  vars:
+    packages:
+      - 'kubelet={{ kube_version }}'
+      - 'kubeadm={{ kube_version }}'
+      - 'kubectl={{ kube_version }}'
+
+- name: Marcar paquetes para que no se actualicen
+  dpkg_selections:
+    name: '{{ item }}'
+    selection: hold
+  with_items:
+    - kubelet
+    - kubeadm
+    - kubectl
+
+- name: kubeadm | Comprobar que kubeadm no esta corriendo
+  stat:
+    path: "/var/lib/kubelet/config.yaml"
+  register: kubeadm_already_run
+
+- name: Instalar Kubernetes en el primer nodo controller.
+  shell: kubeadm init --control-plane-endpoint secdevops-k8s
+  register: kubeadm_output
+  environment:
+    http_proxy: "{{ proxy }}"
+    https_proxy: "{{ proxy }}"
+    no_proxy: "192.168.200.0/21,10.0.0.0/8,*.internal"
+  when: inventory_hostname == groups['k8s_nodes'][0] and not kubeadm_already_run.stat.exists
+
+- name: Sacar el token y certificados que devuelve el output de kubeadm
+  set_fact:
+    kubeadm_certificate_key: "{{ item | regex_search('--certificate-key ([^ ]+)\\n\\n','\\1') | first }}"
+    kubeadm_token: "{{ item | regex_search('--token ([^ ]+)','\\1') | first }}"
+    token_ca: "{{ item | regex_search('--discovery-token-ca-cert-hash ([^ ]+) ','\\1') | first }}"
+  when: inventory_hostname == groups['k8s_nodes'][0] and kubeadm_output.changed
+  with_items: "{{ hostvars[groups['k8s_nodes'][0]]['kubeadm_output'].stdout | default([]) }}"
+
+- debug:
+    msg: 
+      - "kubeadm_certificate_key->{{ hostvars[groups['k8s_nodes'][0]]['kubeadm_certificate_key'] }}"
+      - "kubeadm_token->{{ hostvars[groups['k8s_nodes'][0]]['kubeadm_token'] }}"
+      - "token_ca->{{ hostvars[groups['k8s_nodes'][0]]['token_ca'] }}"
+  when: kubeadm_output.changed
+
+- name: Crear directorio .kube
+  file:
+    path: $HOME/.kube
+    state: directory
+  when: inventory_hostname == groups['k8s_nodes'][0]
+  become: yes
+
+- name: Copiar el fichero admin.conf a .kube
+  copy:
+    src: /etc/kubernetes/admin.conf 
+    dest: /root/.kube/config
+    remote_src: yes
+  when: inventory_hostname == groups['k8s_nodes'][0]
+  become: yes
+
+- name: Descargar el fichero admin.conf a local
+  fetch:
+    src: /etc/kubernetes/admin.conf 
+    dest: /tmp/
+  when: inventory_hostname == groups['k8s_nodes'][0]
+  become: yes
+
+- name: Instalar el plugin de CNI
+  k8s:
+    state: present
+    definition: "{{ lookup('file', 'files/calico.yaml') }}"
+    kubeconfig: /tmp/{{ groups['k8s_nodes'][0] }}/etc/kubernetes/admin.conf
+  delegate_to: localhost
+  run_once: yes
+
+- name: Añadir el resto de nodos
+  shell: kubeadm join {{ lb_vip }}:6443 --token {{ hostvars[groups['k8s_nodes'][0]]['kubeadm_token'] }} --discovery-token-ca-cert-hash {{ hostvars[groups['k8s_nodes'][0]]['token_ca'] }} --control-plane --certificate-key {{ hostvars[groups['k8s_nodes'][0]]['kubeadm_certificate_key'] }}
+  when: inventory_hostname != groups['k8s_nodes'][0] and (not kubelet_conf.stat.exists)

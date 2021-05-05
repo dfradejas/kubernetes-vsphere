@@ -1,0 +1,73 @@
+---
+- name: Deshabilitar swap
+  shell: swapoff -a
+  when: ansible_swaptotal_mb > 0
+
+- name: Eliminar el fichero swap de /etc/fstab
+  mount:
+    name: "{{ item }}"
+    fstype: swap
+    state: absent
+  with_items:
+    - swap
+    - none
+  become: yes
+
+- name: Eliminar el volumen logico de swap
+  lvol:
+    vg: ubuntu-vg
+    lv: swap_lv
+    state: absent
+    force: yes
+  become: yes
+
+- name: Permitir rango de puertos para kubeadm y kubelet
+  ufw:
+    state: enabled
+    rule: allow
+    port: '{{ item }}'
+    direction: in
+    proto: tcp
+  with_items:
+  - '6443' #API
+  - '2379:2380' #kube-apiserver y etcd
+  - '10250' #Self, control plane
+  - '10251' #Self
+  - '10252' #Self
+  - '30000:32767' #Nodeports services
+
+- name: Cargar modulo br_netfilter y overlay
+  modprobe:
+    name: '{{ item }}'
+    state: present
+  with_items:
+    - br_netfilter
+    - overlay
+
+- name: Añadir opciones de bridge en sysctl
+  sysctl:
+    name: '{{ item }}'
+    state: present
+    value: 1
+    sysctl_file: /etc/sysctl.d/k8s.conf
+    reload: yes
+    sysctl_set: yes
+  with_items:
+    - 'net.bridge.bridge-nf-call-ip6tables'
+    - 'net.bridge.bridge-nf-call-iptables'
+    - 'net.ipv4.ip_forward'
+
+- name: Recargar sysctl
+  shell: sysctl --system
+
+- name: Instalar dependencias
+  apt:
+    name: '{{ packages }}'
+    update_cache: yes
+  environment:
+    http_proxy: "{{ proxy }}"
+    https_proxy: "{{ proxy }}"
+  vars:
+    packages:
+      - apt-transport-https
+      - curl

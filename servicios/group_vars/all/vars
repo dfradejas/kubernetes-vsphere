@@ -1,0 +1,11 @@
+---
+ansible_user: "{{ vault_ansible_user }}"
+ansible_ssh_pass: "{{ vault_ansible_ssh_pass }}"
+ansible_become_pass: "{{ vault_ansible_become_pass }}"
+domain: "internal"
+proxy: "http://192.168.131.13:80"
+kube_version: "1.21.0-00"
+keepalived_version: "1:2.0.19-2"
+docker_version: "20.10.2-0ubuntu1~20.04.2"
+haproxy_version: "2.0.13-2ubuntu0.1"
+lb_vip: "192.168.200.231"

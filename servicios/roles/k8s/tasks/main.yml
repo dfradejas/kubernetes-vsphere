@@ -1,0 +1,12 @@
+---
+- name: Preparación de entorno para kubernetes
+  import_tasks: entorno.yml
+
+#- name: Instalar runtime cri-o
+#  import_tasks: runtime-crio.yml
+
+- name: Instalar runtime docker
+  import_tasks: runtime-docker.yml
+
+- name: Instalar componenetes Kubernetes
+  import_tasks: kube.yml
